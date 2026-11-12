@@ -8,6 +8,7 @@ docker compose exec -T -e SENHA="$LEITOR_SENHA" kafka bash -s <<'EOF'
 cat > /tmp/leitor.properties <<P
 security.protocol=SASL_PLAINTEXT
 sasl.mechanism=PLAIN
+enable.idempotence=false
 sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="leitor" password="$SENHA";
 P
 

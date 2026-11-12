@@ -1,0 +1,21 @@
+-> regra de compatibilidade do subject: BACKWARD
+{"compatibility":"BACKWARD"}
+
+-> registrando v1
+{"id":8}
+
+-> v2 (novo campo opcional 'canal') é compatível?
+{"is_compatible":true,"messages":[]}
+-> registrando v2
+{"id":9}
+
+-> v3 ('valor' vira texto + campo obrigatório 'moeda') é compatível?
+{"is_compatible":false,"messages":["{errorType:'TYPE_MISMATCH', description:'The type (path '/fields/3/type') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: STRING not compatible with writer type: DOUBLE'}","{errorType:'READER_FIELD_MISSING_DEFAULT_VALUE', description:'The field 'moeda' at path '/fields/6' in the new schema has no default value and is missing in the old schema', additionalInfo:'moeda'}","{oldSchemaVersion: 2}","{oldSchema: '{\"type\":\"record\",\"name\":\"Transacao\",\"namespace\":\"pagamentos\",\"fields\":[{\"name\":\"id_transacao\",\"type\":\"long\"},{\"name\":\"id_conta\",\"type\":\"int\"},{\"name\":\"id_cartao\",\"type\":\"string\"},{\"name\":\"valor\",\"type\":\"double\"},{\"name\":\"comerciante\",\"type\":\"string\"},{\"name\":\"canal\",\"type\":[\"null\",\"string\"],\"default\":null}]}'}","{validateFields: 'false', compatibility: 'BACKWARD'}"]}
+-> tentando registrar v3 mesmo assim (esperado: erro 409)
+{"error_code":409,"message":"Schema being registered is incompatible with an earlier schema for subject \"contrato-transacao-value\", details: [{errorType:'TYPE_MISMATCH', description:'The type (path '/fields/3/type') of a field in the new schema does not match with the old schema', additionalInfo:'reader type: STRING not compatible with writer type: DOUBLE'}, {errorType:'READER_FIELD_MISSING_DEFAULT_VALUE', description:'The field 'moeda' at path '/fields/6' in the new schema has no default value and is missing in the old schema', additionalInfo:'moeda'}, {oldSchemaVersion: 2}, {oldSchema: '{\"type\":\"record\",\"name\":\"Transacao\",\"namespace\":\"pagamentos\",\"fields\":[{\"name\":\"id_transacao\",\"type\":\"long\"},{\"name\":\"id_conta\",\"type\":\"int\"},{\"name\":\"id_cartao\",\"type\":\"string\"},{\"name\":\"valor\",\"type\":\"double\"},{\"name\":\"comerciante\",\"type\":\"string\"},{\"name\":\"canal\",\"type\":[\"null\",\"string\"],\"default\":null}]}'}, {validateFields: 'false', compatibility: 'BACKWARD'}]"}
+
+-> versões aceitas no subject:
+[1,2]
+
+-> schemas que o conector registrou sozinho a partir do banco:
+["alertas_fraude-value","contrato-transacao-value","pg.public.contas-key","pg.public.contas-value","pg.public.transacoes-key","pg.public.transacoes-value","transacoes_enriquecidas-key","transacoes_enriquecidas-value"]

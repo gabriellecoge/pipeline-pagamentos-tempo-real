@@ -1,0 +1,46 @@
+================ NO BANCO ================
+ id_transacao | id_cartao |  status  
+--------------+-----------+----------
+          598 | CARD-DEMO | aprovada
+(1 row)
+
+INSERT 0 1
+ id_transacao | id_cartao |  status   
+--------------+-----------+-----------
+          598 | CARD-DEMO | estornada
+(1 row)
+
+UPDATE 1
+ id_transacao | id_cartao |  status   
+--------------+-----------+-----------
+          598 | CARD-DEMO | estornada
+(1 row)
+
+DELETE 1
+esperando o CDC entregar...
+
+================ NO KAFKA (tópico pg.public.transacoes, 610 mensagens) ================
+op=c  status antes=None  status depois=aprovada
+   evento: {"op": "c", "before": null, "after": {"pg.public.transacoes.Value": {"id_transacao": 198, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "aprovada", "criado_em": "2026-11-12T02:23:31.209877Z"}}}
+op=u  status antes=aprovada  status depois=estornada
+   evento: {"op": "u", "before": {"pg.public.transacoes.Value": {"id_transacao": 198, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "aprovada", "criado_em": "2026-11-12T02:23:31.209877Z"}}, "after": {"pg.public.transacoes.Value": {"id_transacao": 198, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "estornada", "criado_em": "2026-11-12T02:23:31.209877Z"}}}
+op=d  status antes=estornada  status depois=None
+   evento: {"op": "d", "before": {"pg.public.transacoes.Value": {"id_transacao": 198, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "estornada", "criado_em": "2026-11-12T02:23:31.209877Z"}}, "after": null}
+op=c  status antes=None  status depois=aprovada
+   evento: {"op": "c", "before": null, "after": {"pg.public.transacoes.Value": {"id_transacao": 275, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "aprovada", "criado_em": "2026-11-12T02:27:05.562070Z"}}}
+op=u  status antes=aprovada  status depois=estornada
+   evento: {"op": "u", "before": {"pg.public.transacoes.Value": {"id_transacao": 275, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "aprovada", "criado_em": "2026-11-12T02:27:05.562070Z"}}, "after": {"pg.public.transacoes.Value": {"id_transacao": 275, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "estornada", "criado_em": "2026-11-12T02:27:05.562070Z"}}}
+op=d  status antes=estornada  status depois=None
+   evento: {"op": "d", "before": {"pg.public.transacoes.Value": {"id_transacao": 275, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "estornada", "criado_em": "2026-11-12T02:27:05.562070Z"}}, "after": null}
+op=c  status antes=None  status depois=aprovada
+   evento: {"op": "c", "before": null, "after": {"pg.public.transacoes.Value": {"id_transacao": 432, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "aprovada", "criado_em": "2026-11-12T02:34:15.132707Z"}}}
+op=u  status antes=aprovada  status depois=estornada
+   evento: {"op": "u", "before": {"pg.public.transacoes.Value": {"id_transacao": 432, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "aprovada", "criado_em": "2026-11-12T02:34:15.132707Z"}}, "after": {"pg.public.transacoes.Value": {"id_transacao": 432, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "estornada", "criado_em": "2026-11-12T02:34:15.132707Z"}}}
+op=d  status antes=estornada  status depois=None
+   evento: {"op": "d", "before": {"pg.public.transacoes.Value": {"id_transacao": 432, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "estornada", "criado_em": "2026-11-12T02:34:15.132707Z"}}, "after": null}
+op=c  status antes=None  status depois=aprovada
+   evento: {"op": "c", "before": null, "after": {"pg.public.transacoes.Value": {"id_transacao": 598, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "aprovada", "criado_em": "2026-11-12T02:41:47.165818Z"}}}
+op=u  status antes=aprovada  status depois=estornada
+   evento: {"op": "u", "before": {"pg.public.transacoes.Value": {"id_transacao": 598, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "aprovada", "criado_em": "2026-11-12T02:41:47.165818Z"}}, "after": {"pg.public.transacoes.Value": {"id_transacao": 598, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "estornada", "criado_em": "2026-11-12T02:41:47.165818Z"}}}
+op=d  status antes=estornada  status depois=None
+   evento: {"op": "d", "before": {"pg.public.transacoes.Value": {"id_transacao": 598, "id_conta": 1, "id_cartao": "CARD-DEMO", "valor": 42.9, "comerciante": "Padaria Demo", "status": "estornada", "criado_em": "2026-11-12T02:41:47.165818Z"}}, "after": null}

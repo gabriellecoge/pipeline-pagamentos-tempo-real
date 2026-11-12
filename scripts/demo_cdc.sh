@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Camada 3 (Ingestão): faz INSERT, UPDATE e DELETE no Postgres e mostra os 3 eventos no Kafka.
-set -euo pipefail
+set -uo pipefail
 cd "$(dirname "$0")/.."
 
 echo "================ NO BANCO ================"
@@ -9,13 +9,17 @@ docker compose exec -T postgres psql -U postgres -d pagamentos < sql/postgres/de
 echo "esperando o CDC entregar..."
 sleep 8
 
+# quantas mensagens o tópico tem agora? (lê exatamente essa quantidade e para)
+TOTAL=$(docker compose exec -T kafka kafka-get-offsets --bootstrap-server kafka:29092 \
+          --topic pg.public.transacoes | awk -F: '{s += $3} END {print s}')
 echo
-echo "================ NO KAFKA (tópico pg.public.transacoes) ================"
+echo "================ NO KAFKA (tópico pg.public.transacoes, $TOTAL mensagens) ================"
+
 docker compose exec -T schema-registry kafka-avro-console-consumer \
   --bootstrap-server kafka:29092 \
   --topic pg.public.transacoes --from-beginning \
-  --property schema.registry.url=http://localhost:8081 \
-  --timeout-ms 15000 2>/dev/null \
+  --max-messages "$TOTAL" \
+  --property schema.registry.url=http://localhost:8081 2>/dev/null \
   | grep "CARD-DEMO" \
   | python3 -c '
 import json, sys

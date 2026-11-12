@@ -1,0 +1,35 @@
+================ PERMISSÕES CADASTRADAS ================
+Current ACLs for resource `ResourcePattern(resourceType=TOPIC, name=_connect-, patternType=PREFIXED)`: 
+ 	(principal=User:escritor, host=*, operation=ALL, permissionType=ALLOW) 
+
+Current ACLs for resource `ResourcePattern(resourceType=TOPIC, name=alertas_fraude, patternType=LITERAL)`: 
+ 	(principal=User:leitor, host=*, operation=DESCRIBE, permissionType=ALLOW)
+	(principal=User:leitor, host=*, operation=READ, permissionType=ALLOW) 
+
+Current ACLs for resource `ResourcePattern(resourceType=CLUSTER, name=kafka-cluster, patternType=LITERAL)`: 
+ 	(principal=User:escritor, host=*, operation=DESCRIBE, permissionType=ALLOW)
+	(principal=User:escritor, host=*, operation=IDEMPOTENT_WRITE, permissionType=ALLOW)
+	(principal=User:escritor, host=*, operation=DESCRIBE_CONFIGS, permissionType=ALLOW) 
+
+Current ACLs for resource `ResourcePattern(resourceType=GROUP, name=connect-, patternType=PREFIXED)`: 
+ 	(principal=User:escritor, host=*, operation=ALL, permissionType=ALLOW) 
+
+Current ACLs for resource `ResourcePattern(resourceType=GROUP, name=leitor-, patternType=PREFIXED)`: 
+ 	(principal=User:leitor, host=*, operation=READ, permissionType=ALLOW) 
+
+Current ACLs for resource `ResourcePattern(resourceType=TOPIC, name=transacoes_enriquecidas, patternType=LITERAL)`: 
+ 	(principal=User:leitor, host=*, operation=DESCRIBE, permissionType=ALLOW)
+	(principal=User:leitor, host=*, operation=READ, permissionType=ALLOW) 
+
+Current ACLs for resource `ResourcePattern(resourceType=TOPIC, name=pg., patternType=PREFIXED)`: 
+ 	(principal=User:escritor, host=*, operation=ALL, permissionType=ALLOW) 
+
+
+================ TESTE 1: leitor tenta ESCREVER em alertas_fraude (deve ser NEGADO) ================
+TopicAuthorizationException: Not authorized to access topics: [alertas_fraude]
+
+================ TESTE 2: leitor tenta LER os dados brutos do banco (deve ser NEGADO) ================
+TopicAuthorizationException: Not authorized to access topics: [pg.public.transacoes]
+
+================ TESTE 3: leitor LÊ alertas_fraude (deve FUNCIONAR) ================
+Processed a total of 3 messages

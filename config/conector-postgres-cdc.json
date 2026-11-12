@@ -1,0 +1,25 @@
+{
+  "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+  "tasks.max": "1",
+
+  "database.hostname": "postgres",
+  "database.port": "5432",
+  "database.user": "postgres",
+  "database.password": "${env:PG_PASSWORD}",
+  "database.dbname": "pagamentos",
+
+  "topic.prefix": "pg",
+  "table.include.list": "public.contas,public.transacoes",
+  "plugin.name": "pgoutput",
+  "publication.name": "pub_pagamentos",
+  "publication.autocreate.mode": "disabled",
+  "slot.name": "slot_pagamentos",
+
+  "snapshot.mode": "initial",
+  "decimal.handling.mode": "double",
+  "tombstones.on.delete": "false",
+
+  "errors.tolerance": "all",
+  "errors.log.enable": "true",
+  "errors.log.include.messages": "true"
+}

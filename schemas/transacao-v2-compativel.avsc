@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "Transacao",
+  "namespace": "pagamentos",
+  "fields": [
+    {"name": "id_transacao", "type": "long"},
+    {"name": "id_conta",     "type": "int"},
+    {"name": "id_cartao",    "type": "string"},
+    {"name": "valor",        "type": "double"},
+    {"name": "comerciante",  "type": "string"},
+    {"name": "canal",        "type": ["null", "string"], "default": null}
+  ]
+}

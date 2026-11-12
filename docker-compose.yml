@@ -1,0 +1,187 @@
+# Pipeline de pagamentos em tempo real — tudo local, 100% gratuito.
+# Sobe com:  bash scripts/subir.sh   (ou: docker compose up -d --build)
+# Senhas vêm do arquivo .env (copiado do .env.example).
+
+services:
+
+  # ---------------------------------------------------------------- Banco de origem
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: pagamentos
+    # wal_level=logical é o que permite o CDC ler cada mudança do banco
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=4", "-c", "max_wal_senders=4"]
+    ports: ["5432:5432"]
+    volumes:
+      - ./sql/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pagamentos"]
+      interval: 5s
+      retries: 30
+
+  # ---------------------------------------------------------------- Camada 1: Fundação
+  kafka:
+    image: confluentinc/cp-kafka:7.7.1
+    container_name: kafka
+    ports: ["9094:9094"]
+    environment:
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      # 4 portas:
+      #   INTERNO    (29092) sem senha, só dentro da rede Docker: Schema Registry, Flink, Kafka UI
+      #   CONTROLE   (29093) uso interno do próprio Kafka
+      #   SENHADOCKER(29095) com usuário e senha, para o conector (identidade "escritor")
+      #   SENHAHOST  (9094)  com usuário e senha, para o consumidor Python (identidade "leitor")
+      KAFKA_LISTENERS: "INTERNO://0.0.0.0:29092,CONTROLE://0.0.0.0:29093,SENHADOCKER://0.0.0.0:29095,SENHAHOST://0.0.0.0:9094"
+      KAFKA_ADVERTISED_LISTENERS: "INTERNO://kafka:29092,SENHADOCKER://kafka:29095,SENHAHOST://localhost:9094"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "INTERNO:PLAINTEXT,CONTROLE:PLAINTEXT,SENHADOCKER:SASL_PLAINTEXT,SENHAHOST:SASL_PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNO"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLE"
+      KAFKA_SASL_ENABLED_MECHANISMS: "PLAIN"
+      # as duas identidades e suas senhas (vêm do .env)
+      KAFKA_LISTENER_NAME_SENHADOCKER_PLAIN_SASL_JAAS_CONFIG: 'org.apache.kafka.common.security.plain.PlainLoginModule required user_escritor="${ESCRITOR_SENHA}" user_leitor="${LEITOR_SENHA}";'
+      KAFKA_LISTENER_NAME_SENHAHOST_PLAIN_SASL_JAAS_CONFIG: 'org.apache.kafka.common.security.plain.PlainLoginModule required user_escritor="${ESCRITOR_SENHA}" user_leitor="${LEITOR_SENHA}";'
+      # ACLs ligadas: quem não tem permissão explícita é barrado
+      KAFKA_AUTHORIZER_CLASS_NAME: "org.apache.kafka.metadata.authorizer.StandardAuthorizer"
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+      KAFKA_SUPER_USERS: "User:ANONYMOUS"   # = serviços da porta interna
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: "-Xms512m -Xmx512m"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server kafka:29092 > /dev/null 2>&1"]
+      interval: 10s
+      retries: 30
+
+  # cria os tópicos e as permissões (ACLs) das duas identidades, e termina
+  kafka-init:
+    image: confluentinc/cp-kafka:7.7.1
+    container_name: kafka-init
+    depends_on:
+      kafka: { condition: service_healthy }
+    volumes:
+      - ./scripts/kafka_init.sh:/kafka_init.sh:ro
+    entrypoint: ["bash", "/kafka_init.sh"]
+    restart: "no"
+
+  # ---------------------------------------------------------------- Camada 2: Contrato
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.7.1
+    container_name: schema-registry
+    depends_on:
+      kafka: { condition: service_healthy }
+    ports: ["8081:8081"]
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:29092"
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
+      SCHEMA_REGISTRY_HEAP_OPTS: "-Xms256m -Xmx256m"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/subjects > /dev/null"]
+      interval: 10s
+      retries: 30
+
+  # ---------------------------------------------------------------- Camada 3: Ingestão (CDC)
+  connect:
+    build: ./docker/connect
+    container_name: connect
+    depends_on:
+      kafka-init: { condition: service_completed_successfully }
+      schema-registry: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    ports: ["8083:8083"]
+    environment:
+      # o conector entra no Kafka como "escritor"
+      CONNECT_BOOTSTRAP_SERVERS: "kafka:29095"
+      CONNECT_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      CONNECT_SASL_MECHANISM: PLAIN
+      CONNECT_SASL_JAAS_CONFIG: 'org.apache.kafka.common.security.plain.PlainLoginModule required username="escritor" password="${ESCRITOR_SENHA}";'
+      CONNECT_PRODUCER_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      CONNECT_PRODUCER_SASL_MECHANISM: PLAIN
+      CONNECT_PRODUCER_SASL_JAAS_CONFIG: 'org.apache.kafka.common.security.plain.PlainLoginModule required username="escritor" password="${ESCRITOR_SENHA}";'
+      CONNECT_CONSUMER_SECURITY_PROTOCOL: SASL_PLAINTEXT
+      CONNECT_CONSUMER_SASL_MECHANISM: PLAIN
+      CONNECT_CONSUMER_SASL_JAAS_CONFIG: 'org.apache.kafka.common.security.plain.PlainLoginModule required username="escritor" password="${ESCRITOR_SENHA}";'
+      CONNECT_GROUP_ID: "connect-pagamentos"
+      CONNECT_CONFIG_STORAGE_TOPIC: "_connect-configs"
+      CONNECT_OFFSET_STORAGE_TOPIC: "_connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "_connect-status"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      # mensagens em Avro, com o formato registrado no Schema Registry
+      CONNECT_KEY_CONVERTER: "io.confluent.connect.avro.AvroConverter"
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONNECT_VALUE_CONVERTER: "io.confluent.connect.avro.AvroConverter"
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "connect"
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+      # permite usar ${env:PG_PASSWORD} na config do conector (senha fora do Git)
+      CONNECT_CONFIG_PROVIDERS: "env"
+      CONNECT_CONFIG_PROVIDERS_ENV_CLASS: "org.apache.kafka.common.config.provider.EnvVarConfigProvider"
+      PG_PASSWORD: ${PG_PASSWORD}
+      KAFKA_HEAP_OPTS: "-Xms512m -Xmx1g"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors > /dev/null"]
+      interval: 10s
+      retries: 40
+
+  # ---------------------------------------------------------------- Camada 4: Processamento
+  flink-jobmanager:
+    build: ./docker/flink
+    container_name: flink-jobmanager
+    command: jobmanager
+    ports: ["8082:8081"]   # painel do Flink em http://localhost:8082
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.memory.process.size: 1024m
+        parallelism.default: 1
+
+  flink-taskmanager:
+    build: ./docker/flink
+    container_name: flink-taskmanager
+    command: taskmanager
+    depends_on: [flink-jobmanager]
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.memory.process.size: 1536m
+        taskmanager.numberOfTaskSlots: 4
+        parallelism.default: 1
+
+  # cliente SQL do Flink (só roda quando chamado pelo script)
+  sql-client:
+    build: ./docker/flink
+    container_name: sql-client
+    profiles: ["ferramentas"]
+    command: bin/sql-client.sh
+    depends_on: [flink-jobmanager]
+    volumes:
+      - ./sql/flink:/sql:ro
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        rest.address: flink-jobmanager
+
+  # ---------------------------------------------------------------- Camada 5: Operação
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: kafka-ui
+    depends_on:
+      kafka: { condition: service_healthy }
+    ports: ["8080:8080"]   # painel em http://localhost:8080
+    environment:
+      KAFKA_CLUSTERS_0_NAME: "pagamentos"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:29092"
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: "http://schema-registry:8081"
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: "connect"
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: "http://connect:8083"
+      JAVA_OPTS: "-Xmx256m"

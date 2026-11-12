@@ -1,0 +1,14 @@
+# segredos
+.env
+*.key
+config/*.gerado.json
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# sistema
+.DS_Store
+Thumbs.db
